@@ -1,0 +1,1734 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AQUANET AI // Data Center Hydro-Balancing Simulator V2</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              cyan: '#06b6d4',
+              emerald: '#10b981',
+              rose: '#f43f5e',
+              amber: '#f59e0b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18 & ReactDOM & Framer Motion & Babel Standalone -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #020617;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+
+    input[type=range] {
+      accent-color: #06b6d4;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 h-screen w-full overflow-hidden select-none font-sans antialiased">
+  <div id="root" class="h-full w-full"></div>
+
+  <!-- React Application Script -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+    const { motion, AnimatePresence } = window.Motion || {
+      motion: {
+        circle: (props) => <circle {...props} />,
+        div: (props) => <div {...props} />
+      }
+    };
+
+    // --- Lucide React Icons (SVG Equivalents) ---
+    const Server = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+        <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+        <line x1="6" x2="6.01" y1="6" y2="6" />
+        <line x1="6" x2="6.01" y1="18" y2="18" />
+      </svg>
+    );
+
+    const Droplets = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z" />
+        <path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97" />
+      </svg>
+    );
+
+    const ShieldCheck = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+    );
+
+    const Thermometer = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z" />
+      </svg>
+    );
+
+    const Users = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    );
+
+    const Activity = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+      </svg>
+    );
+
+    const Cpu = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <rect x="9" y="9" width="6" height="6" />
+        <path d="M15 2v2" /><path d="M15 20v2" /><path d="M2 15h2" /><path d="M2 9h2" />
+        <path d="M20 15h2" /><path d="M20 9h2" /><path d="M9 2v2" /><path d="M9 20v2" />
+      </svg>
+    );
+
+    const AlertTriangle = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    );
+
+    const Play = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <polygon points="5 3 19 12 5 21 5 3" />
+      </svg>
+    );
+
+    const Square = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+      </svg>
+    );
+
+    const RotateCcw = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
+      </svg>
+    );
+
+    const Globe = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="2" y1="12" x2="22" y2="12" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </svg>
+    );
+
+    const Sliders = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="4" x2="4" y1="21" y2="14" />
+        <line x1="4" x2="4" y1="10" y2="3" />
+        <line x1="12" x2="12" y1="21" y2="12" />
+        <line x1="12" x2="12" y1="8" y2="3" />
+        <line x1="20" x2="20" y1="21" y2="16" />
+        <line x1="20" x2="20" y1="12" y2="3" />
+        <line x1="1" x2="7" y1="14" y2="14" />
+        <line x1="9" x2="15" y1="8" y2="8" />
+        <line x1="17" x2="23" y1="16" y2="16" />
+      </svg>
+    );
+
+    const Gauge = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m12 14 4-4" />
+        <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+      </svg>
+    );
+
+    const Flame = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+      </svg>
+    );
+
+    const Wind = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17.7 7.7A2.5 2.5 0 1 1 19 12H2" />
+        <path d="M12.6 19.4A2 2 0 1 0 14 16H2" />
+        <path d="M9.8 4.6A2 2 0 1 1 11 8H2" />
+      </svg>
+    );
+
+    const CheckCircle2 = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+    );
+
+    const Zap = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+      </svg>
+    );
+
+    const ArrowRight = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+      </svg>
+    );
+
+    const ArrowLeft = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m12 19-7-7 7-7" /><path d="M19 12H5" />
+      </svg>
+    );
+
+    const X = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+      </svg>
+    );
+
+    const Factory = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+        <path d="M17 18h1" /><path d="M12 18h1" /><path d="M7 18h1" />
+      </svg>
+    );
+
+    const CloudOff = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m2 2 20 20" />
+        <path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193" />
+        <path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07" />
+      </svg>
+    );
+
+    const Info = ({ className = "w-4 h-4" }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
+      </svg>
+    );
+
+    // Helper de puntos de Curva Bezier
+    function getCubicBezierPoints(p0, p1, p2, p3, steps = 8) {
+      const xs = [];
+      const ys = [];
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const mt = 1 - t;
+        const x = mt * mt * mt * p0.x + 3 * mt * mt * t * p1.x + 3 * mt * t * t * p2.x + t * t * t * p3.x;
+        const y = mt * mt * mt * p0.y + 3 * mt * mt * t * p1.y + 3 * mt * t * t * p2.y + t * t * t * p3.y;
+        xs.push(Math.round(x));
+        ys.push(Math.round(y));
+      }
+      return { xs, ys };
+    }
+
+    // ========================================================================
+    // APP REACT V2
+    // ========================================================================
+    function App() {
+      const [activeTab, setActiveTab] = useState('control');
+
+      // Tab 1: Configuración Operativa
+      const [serverCount, setServerCount] = useState(5);
+      const [thermalThreshold, setThermalThreshold] = useState(45);
+      const [activeUsers, setActiveUsers] = useState(45000);
+
+      // Tab 2: Control, Simulación y Balancer
+      const [isRunning, setIsRunning] = useState(true);
+      const [isSmartBalancing, setIsSmartBalancing] = useState(false);
+      const [isCoolingModalOpen, setIsCoolingModalOpen] = useState(false);
+
+      // Estados Térmicos e Hídricos
+      const [mainServerTemp, setMainServerTemp] = useState(36);
+      const [waterLossTotal, setWaterLossTotal] = useState(0);
+      const [waterSavedTotal, setWaterSavedTotal] = useState(0);
+
+      const [logs, setLogs] = useState([
+        { id: 1, time: '12:00:00', text: 'Telemetría V2 inicializada. Topología dinámica lista.', type: 'info' }
+      ]);
+      const logIdRef = useRef(2);
+
+      const addLog = (text, type = 'info') => {
+        const timeStr = new Date().toTimeString().split(' ')[0];
+        setLogs(prev => [
+          { id: logIdRef.current++, time: timeStr, text, type },
+          ...prev.slice(0, 7)
+        ]);
+      };
+
+      const worldPoint = { x: 130, y: 325 };
+
+      // Topología dinámica de servidores
+      const servers = useMemo(() => {
+        const list = [];
+        const midIndex = Math.floor((serverCount - 1) / 2);
+        const startY = 100;
+        const endY = 550;
+        const stepY = serverCount > 1 ? (endY - startY) / (serverCount - 1) : 0;
+
+        let secondaryCounter = 2;
+
+        for (let i = 0; i < serverCount; i++) {
+          const y = Math.round(startY + i * stepY);
+          const normalizedDist = Math.abs(y - 325) / 225;
+          const x = Math.round(720 - Math.pow(normalizedDist, 2) * 75);
+
+          const isPrimary = (i === midIndex);
+          const id = isPrimary ? 1 : secondaryCounter++;
+          const name = isPrimary ? 'Servidor 1 (Principal)' : `Rack Secundario 0${id}`;
+
+          let temp;
+          let load;
+          let status;
+
+          if (isPrimary) {
+            temp = mainServerTemp;
+            if (!isSmartBalancing) {
+              load = Math.min(99, Math.round(78 + (activeUsers / 100000) * 21));
+              status = temp > thermalThreshold ? 'critical' : temp > 40 ? 'warning' : 'optimal';
+            } else {
+              load = Math.round(100 / serverCount);
+              status = 'optimal';
+            }
+          } else {
+            if (!isSmartBalancing) {
+              temp = 23 + (id % 3);
+              load = Math.round(3 + (id % 4));
+              status = 'standby';
+            } else {
+              temp = Math.min(34, 27 + Math.round((activeUsers / 100000) * 6) + (id % 2));
+              load = Math.round(100 / serverCount);
+              status = 'optimal';
+            }
+          }
+
+          list.push({ id, name, role: isPrimary ? 'primary' : 'secondary', x, y, temp, load, status });
+        }
+        return list;
+      }, [serverCount, mainServerTemp, isSmartBalancing, activeUsers, thermalThreshold]);
+
+      const primaryServer = useMemo(() => servers.find(s => s.role === 'primary') || servers[0], [servers]);
+      const secondaryServers = useMemo(() => servers.filter(s => s.role === 'secondary'), [servers]);
+
+      const isOverheated = mainServerTemp > thermalThreshold;
+      const isCoolingTowerActive = isOverheated && !isSmartBalancing;
+
+      const avgTemp = useMemo(() => {
+        if (servers.length === 0) return 30;
+        return servers.reduce((acc, curr) => acc + curr.temp, 0) / servers.length;
+      }, [servers]);
+
+      const currentWaterLossRate = useMemo(() => {
+        if (!isRunning) return 0;
+        if (isOverheated && !isSmartBalancing) {
+          const excess = mainServerTemp - thermalThreshold;
+          return Math.round(480 + excess * 90 + (activeUsers / 1000) * 12);
+        }
+        return 0;
+      }, [isRunning, isOverheated, isSmartBalancing, mainServerTemp, thermalThreshold, activeUsers]);
+
+      // Motor de simulación
+      useEffect(() => {
+        if (!isRunning) return;
+
+        const interval = setInterval(() => {
+          if (!isSmartBalancing) {
+            setMainServerTemp(prev => Math.min(64, prev + 2.5));
+            if (mainServerTemp > thermalThreshold) {
+              setWaterLossTotal(prev => prev + Math.round(currentWaterLossRate / 10));
+            }
+          } else {
+            setMainServerTemp(prev => Math.max(29, prev - 4));
+            setWaterSavedTotal(prev => prev + Math.round(750 + (activeUsers / 1000) * 18));
+          }
+        }, 1000);
+
+        return () => clearInterval(interval);
+      }, [isRunning, isSmartBalancing, mainServerTemp, thermalThreshold, currentWaterLossRate, activeUsers]);
+
+      useEffect(() => {
+        if (isOverheated && !isSmartBalancing) {
+          addLog(`[ALERTA TÉRMICA] Servidor 1 en ${mainServerTemp.toFixed(1)}°C superó el umbral (${thermalThreshold}°C). Torres de evaporación al 100%.`, 'alert');
+        } else if (isSmartBalancing && mainServerTemp <= 31) {
+          addLog(`[MODO SECO] Clúster estabilizado en ${mainServerTemp.toFixed(1)}°C. Torres apagadas. Cero evaporación.`, 'success');
+        }
+      }, [isOverheated, isSmartBalancing]);
+
+      const handleToggleBalancing = () => {
+        const next = !isSmartBalancing;
+        setIsSmartBalancing(next);
+        if (next) {
+          addLog(`[BALANCEO ACTIVADO] Smart Load Balancing activo. Distribuyendo tráfico a ${serverCount} servidores.`, 'success');
+        } else {
+          addLog(`[BALANCEO DESACTIVADO] Carga concentrada en Servidor 1. Riesgo inminente de sobrecalentamiento.`, 'warning');
+        }
+      };
+
+      const handleReset = () => {
+        setMainServerTemp(35);
+        setWaterLossTotal(0);
+        setWaterSavedTotal(0);
+        setIsSmartBalancing(false);
+        setIsRunning(true);
+        addLog('Simulación reiniciada a condiciones estándar.', 'info');
+      };
+
+      return (
+        <div className="h-screen w-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden font-sans select-none antialiased">
+
+          {/* Header Superior */}
+          <header className="h-14 border-b border-slate-800 bg-slate-900/90 backdrop-blur px-6 flex items-center justify-between z-20 shrink-0">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+                <Activity className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h1 className="text-sm font-bold tracking-wider uppercase text-slate-100 font-mono">
+                    AQUANET AI <span className="text-cyan-400 font-normal">DATA CENTER PLATFORM</span>
+                  </h1>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-700/60 text-cyan-300 font-mono">
+                    PROTOTIPO V2
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Simulador SaaS Avanzado de Carga Hídrica // Animación de Nodos & Balanceo Térmico
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2 text-xs px-3 py-1 rounded-full bg-slate-950 border border-slate-800">
+                <span className={`w-2 h-2 rounded-full ${isRunning ? 'bg-emerald-400 animate-ping' : 'bg-rose-500'}`}></span>
+                <span className="text-slate-300 font-mono text-[11px]">
+                  {isRunning ? 'MOTOR EN VIVO' : 'PAUSADO'}
+                </span>
+              </div>
+
+              <div className="flex items-center space-x-2 text-xs px-3.5 py-1 rounded-full bg-slate-950 border border-slate-800">
+                <span className={`w-2 h-2 rounded-full ${isSmartBalancing ? 'bg-emerald-400 shadow-[0_0_8px_#10b981]' :
+                  isOverheated ? 'bg-rose-500 animate-pulse shadow-[0_0_10px_#f43f5e]' :
+                    'bg-cyan-400'
+                  }`}></span>
+                <span className="text-slate-300 font-mono text-[11px] font-semibold">
+                  {isSmartBalancing ? 'MODO SECO (CIRCUITO CERRADO)' : isOverheated ? 'ALERTA TÉRMICA: EVAPORACIÓN' : 'MONONODO: CALENTAMIENTO'}
+                </span>
+              </div>
+
+              <button
+                onClick={handleReset}
+                className="flex items-center space-x-1.5 text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg border border-slate-800 hover:bg-slate-800/80 transition"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
+            </div>
+          </header>
+
+          {/* Cuerpo: 70% Canvas | 30% Panel */}
+          <div className="flex-1 flex overflow-hidden">
+
+            {/* SECCIÓN IZQUIERDA (70%): Topological Canvas */}
+            <div className="w-[70%] h-full relative bg-slate-950 border-r border-slate-800 flex flex-col overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px] opacity-60 pointer-events-none" />
+
+              {/* Status Banner */}
+              <div className="absolute top-4 left-6 right-6 z-10 flex items-center justify-between pointer-events-none">
+                <div className="flex items-center space-x-2">
+                  <span className="text-[11px] font-mono uppercase tracking-widest text-slate-400 bg-slate-900/90 backdrop-blur px-3 py-1 rounded-md border border-slate-800">
+                    Topological Canvas // Clúster Activo: {serverCount} Servidores
+                  </span>
+                  <span className="text-[11px] font-mono text-cyan-400 bg-cyan-950/70 border border-cyan-800/60 px-2.5 py-1 rounded-md">
+                    {activeUsers.toLocaleString()} req/s
+                  </span>
+                </div>
+
+                {isSmartBalancing ? (
+                  <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/60 text-emerald-400 text-xs font-semibold shadow-[0_0_15px_rgba(16,185,129,0.25)]">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Dry / Closed Mode Active (0 L/h)</span>
+                  </div>
+                ) : isOverheated ? (
+                  <div className="flex items-center space-x-2 px-3.5 py-1 rounded-full bg-rose-950/90 border border-rose-500 text-rose-400 text-xs font-semibold animate-pulse shadow-[0_0_20px_rgba(244,63,94,0.4)]">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                    <span>ALERTA: EVAPORACIÓN EN CURSO ({currentWaterLossRate} L/h)</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-800 text-slate-400 text-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                    <span>Modo Bypass Directo // Acumulando Calor</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Capa SVG: Conexiones y Partículas Framer Motion */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 1000 650" preserveAspectRatio="none">
+                <defs>
+                  <filter id="glow-cyan" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="3.5" result="blur" />
+                    <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                  </filter>
+                  <filter id="glow-rose" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4.5" result="blur" />
+                    <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                  </filter>
+                  <filter id="glow-emerald" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="3.5" result="blur" />
+                    <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                  </filter>
+                </defs>
+
+                {/* Líneas de El Mundo a Servidores */}
+                {servers.map((srv) => {
+                  const isPrimary = srv.role === 'primary';
+                  const p0 = worldPoint;
+                  const p3 = { x: srv.x, y: srv.y };
+                  const p1 = { x: Math.round(p0.x + (p3.x - p0.x) * 0.45), y: p0.y };
+                  const p2 = { x: Math.round(p0.x + (p3.x - p0.x) * 0.55), y: p3.y };
+                  const pathD = `M ${p0.x} ${p0.y} C ${p1.x} ${p1.y}, ${p2.x} ${p2.y}, ${p3.x} ${p3.y}`;
+
+                  let strokeColor = '#1e293b';
+                  let strokeWidth = '1.5';
+                  let strokeDash = '4 4';
+                  let opacity = 0.35;
+
+                  if (!isSmartBalancing) {
+                    if (isPrimary) {
+                      strokeColor = isOverheated ? '#f43f5e' : '#06b6d4';
+                      strokeWidth = isOverheated ? '3.5' : '2.5';
+                      strokeDash = '6 4';
+                      opacity = 0.95;
+                    } else {
+                      opacity = 0.15;
+                      strokeWidth = '1';
+                    }
+                  } else {
+                    strokeColor = '#10b981';
+                    strokeWidth = '2.2';
+                    strokeDash = '6 4';
+                    opacity = 0.85;
+                  }
+
+                  return (
+                    <path
+                      key={`line-w-to-${srv.id}`}
+                      d={pathD}
+                      fill="none"
+                      stroke={strokeColor}
+                      strokeWidth={strokeWidth}
+                      strokeDasharray={strokeDash}
+                      opacity={opacity}
+                      filter={
+                        !isSmartBalancing && isPrimary
+                          ? isOverheated ? 'url(#glow-rose)' : 'url(#glow-cyan)'
+                          : isSmartBalancing ? 'url(#glow-emerald)' : undefined
+                      }
+                    />
+                  );
+                })}
+
+                {/* Líneas Mesh */}
+                {primaryServer && secondaryServers.map((sec) => {
+                  const mp0 = { x: primaryServer.x, y: primaryServer.y };
+                  const mp3 = { x: sec.x, y: sec.y };
+                  const mp1 = { x: primaryServer.x - 70, y: primaryServer.y };
+                  const mp2 = { x: sec.x - 70, y: sec.y };
+                  const meshPathD = `M ${mp0.x} ${mp0.y} C ${mp1.x} ${mp1.y}, ${mp2.x} ${mp2.y}, ${mp3.x} ${mp3.y}`;
+
+                  return (
+                    <path
+                      key={`mesh-srv1-to-${sec.id}`}
+                      d={meshPathD}
+                      fill="none"
+                      stroke={isSmartBalancing ? '#38bdf8' : '#1e293b'}
+                      strokeWidth={isSmartBalancing ? '1.8' : '1'}
+                      strokeDasharray={isSmartBalancing ? '5 4' : '3 6'}
+                      opacity={isSmartBalancing ? 0.75 : 0.15}
+                      filter={isSmartBalancing ? 'url(#glow-cyan)' : undefined}
+                    />
+                  );
+                })}
+
+                {/* Partículas de Tráfico Animadas (Framer Motion) */}
+                {isRunning && servers.map((srv) => {
+                  const isPrimary = srv.role === 'primary';
+                  const p0 = worldPoint;
+                  const p3 = { x: srv.x, y: srv.y };
+                  const p1 = { x: Math.round(p0.x + (p3.x - p0.x) * 0.45), y: p0.y };
+                  const p2 = { x: Math.round(p0.x + (p3.x - p0.x) * 0.55), y: p3.y };
+                  const { xs, ys } = getCubicBezierPoints(p0, p1, p2, p3, 8);
+
+                  if (!isSmartBalancing) {
+                    if (isPrimary) {
+                      const particleDelays = [0, 0.22, 0.44, 0.66, 0.88, 1.1, 1.32];
+                      return (
+                        <g key="stream-w-to-srv1">
+                          {particleDelays.map((del, pIdx) => (
+                            <motion.circle
+                              key={`p-pri-${pIdx}`}
+                              r={isOverheated ? 4.5 : 3.8}
+                              fill={isOverheated ? '#f43f5e' : '#06b6d4'}
+                              filter={isOverheated ? 'url(#glow-rose)' : 'url(#glow-cyan)'}
+                              animate={{
+                                cx: xs,
+                                cy: ys,
+                                opacity: [0, 0.9, 1, 1, 1, 0.9, 0],
+                                scale: [0.8, 1.2, 1.2, 1, 0.8]
+                              }}
+                              transition={{
+                                duration: 1.5,
+                                repeat: Infinity,
+                                ease: 'linear',
+                                delay: del
+                              }}
+                            />
+                          ))}
+                        </g>
+                      );
+                    } else {
+                      return (
+                        <motion.circle
+                          key={`stream-w-to-${srv.id}-slow`}
+                          r={2.5}
+                          fill="#64748b"
+                          animate={{ cx: xs, cy: ys, opacity: [0, 0.35, 0.35, 0] }}
+                          transition={{
+                            duration: 3.2,
+                            repeat: Infinity,
+                            ease: 'linear',
+                            delay: (srv.id * 0.6) % 3
+                          }}
+                        />
+                      );
+                    }
+                  }
+
+                  const balancedDelays = [0, 0.7, 1.4];
+                  return (
+                    <g key={`stream-w-to-${srv.id}-balanced`}>
+                      {balancedDelays.map((del, pIdx) => (
+                        <motion.circle
+                          key={`p-bal-${srv.id}-${pIdx}`}
+                          r={3.4}
+                          fill="#10b981"
+                          filter="url(#glow-emerald)"
+                          animate={{
+                            cx: xs,
+                            cy: ys,
+                            opacity: [0, 0.85, 1, 1, 0.85, 0],
+                            scale: [0.8, 1.1, 1, 0.8]
+                          }}
+                          transition={{
+                            duration: 2.1,
+                            repeat: Infinity,
+                            ease: 'linear',
+                            delay: del + (srv.id * 0.15)
+                          }}
+                        />
+                      ))}
+                    </g>
+                  );
+                })}
+
+                {/* Esferas Mesh Delegadas (Framer Motion) */}
+                {isRunning && isSmartBalancing && primaryServer && secondaryServers.map((sec) => {
+                  const mp0 = { x: primaryServer.x, y: primaryServer.y };
+                  const mp3 = { x: sec.x, y: sec.y };
+                  const mp1 = { x: primaryServer.x - 70, y: primaryServer.y };
+                  const mp2 = { x: sec.x - 70, y: sec.y };
+                  const { xs: mXs, ys: mYs } = getCubicBezierPoints(mp0, mp1, mp2, mp3, 8);
+
+                  const meshDelays = [0.2, 1.2];
+                  return (
+                    <g key={`mesh-particles-${sec.id}`}>
+                      {meshDelays.map((del, mIdx) => (
+                        <motion.circle
+                          key={`mp-${sec.id}-${mIdx}`}
+                          r={3.0}
+                          fill="#38bdf8"
+                          filter="url(#glow-cyan)"
+                          animate={{
+                            cx: mXs,
+                            cy: mYs,
+                            opacity: [0, 0.8, 1, 1, 0.8, 0],
+                            scale: [0.8, 1.1, 1, 0.8]
+                          }}
+                          transition={{
+                            duration: 1.9,
+                            repeat: Infinity,
+                            ease: 'linear',
+                            delay: del + (sec.id * 0.2)
+                          }}
+                        />
+                      ))}
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {/* Nodos HTML Interactivos */}
+              <div className="relative w-full h-full pointer-events-none">
+
+                {/* Nodo El Mundo */}
+                <div
+                  className="absolute pointer-events-auto -translate-x-1/2 -translate-y-1/2 z-20"
+                  style={{ left: `${(worldPoint.x / 1000) * 100}%`, top: `${(worldPoint.y / 650) * 100}%` }}
+                >
+                  <div className="relative group">
+                    {isRunning && (
+                      <motion.div
+                        className="absolute -inset-2 rounded-2xl border border-cyan-500/40 pointer-events-none"
+                        animate={{ scale: [1, 1.25, 1.35], opacity: [0.6, 0.2, 0] }}
+                        transition={{ duration: 2.4, repeat: Infinity, ease: 'easeOut' }}
+                      />
+                    )}
+
+                    <div className="w-52 bg-slate-900/95 border border-cyan-500/40 rounded-2xl p-4 shadow-[0_0_25px_rgba(6,182,212,0.18)] backdrop-blur">
+                      <div className="flex items-center space-x-3 mb-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-cyan-950 border border-cyan-800 flex items-center justify-center text-cyan-400">
+                          <Globe className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase font-mono text-cyan-400 font-semibold tracking-wider">
+                            Fuente de Tráfico
+                          </div>
+                          <div className="text-xs font-bold text-slate-100">
+                            El Mundo // Ingress
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800/80 mb-2">
+                        <div className="text-[10px] text-slate-400">Peticiones Concurrentes:</div>
+                        <div className="text-base font-mono font-bold text-cyan-300 flex items-baseline justify-between">
+                          <span>{activeUsers.toLocaleString()}</span>
+                          <span className="text-[10px] text-slate-500 font-normal font-sans">req/s</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                        <span className="flex items-center space-x-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                          <span>HTTPS / LLM</span>
+                        </span>
+                        <span className="text-cyan-400">Gateway 01</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Servidores */}
+                {servers.map((srv) => {
+                  const isPrimary = srv.role === 'primary';
+                  const leftPercent = (srv.x / 1000) * 100;
+                  const topPercent = (srv.y / 650) * 100;
+
+                  return (
+                    <div
+                      key={`card-srv-${srv.id}`}
+                      className="absolute pointer-events-auto -translate-x-1/2 -translate-y-1/2 z-20 transition-all duration-500"
+                      style={{ left: `${leftPercent}%`, top: `${topPercent}%` }}
+                    >
+                      <div className={`w-52 rounded-2xl p-3.5 backdrop-blur transition-all duration-500 border shadow-xl ${isPrimary
+                        ? isOverheated
+                          ? 'bg-slate-900/95 border-rose-500 shadow-[0_0_30px_rgba(244,63,94,0.45)] ring-2 ring-rose-500/40 animate-pulse'
+                          : isSmartBalancing
+                            ? 'bg-slate-900/95 border-emerald-500/60 shadow-[0_0_25px_rgba(16,185,129,0.25)]'
+                            : 'bg-slate-900/95 border-cyan-500/50 shadow-[0_0_20px_rgba(6,182,212,0.2)]'
+                        : isSmartBalancing
+                          ? 'bg-slate-900/95 border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.15)] opacity-100'
+                          : 'bg-slate-900/40 border-slate-800/80 opacity-50 shadow-none'
+                        }`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${isPrimary
+                              ? isOverheated
+                                ? 'bg-rose-950 border border-rose-700 text-rose-400'
+                                : isSmartBalancing
+                                  ? 'bg-emerald-950 border border-emerald-700 text-emerald-400'
+                                  : 'bg-cyan-950 border border-cyan-700 text-cyan-400'
+                              : isSmartBalancing
+                                ? 'bg-emerald-950 border border-emerald-800 text-emerald-400'
+                                : 'bg-slate-800 border border-slate-700 text-slate-500'
+                              }`}>
+                              {isPrimary && isOverheated ? (
+                                <Flame className="w-4 h-4 text-rose-400" />
+                              ) : (
+                                <Server className="w-4 h-4" />
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-[11px] font-bold text-slate-200 leading-tight">
+                                {srv.name}
+                              </div>
+                              <div className="text-[9px] font-mono text-slate-400">
+                                {isPrimary ? 'Core AI Node' : 'Secondary Rack'}
+                              </div>
+                            </div>
+                          </div>
+
+                          <span className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-semibold uppercase ${isPrimary && isOverheated
+                            ? 'bg-rose-950 text-rose-300 border border-rose-600 animate-pulse'
+                            : srv.status === 'optimal'
+                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                              : srv.status === 'warning'
+                                ? 'bg-amber-950 text-amber-300 border border-amber-700'
+                                : 'bg-slate-800 text-slate-400 border border-slate-700'
+                            }`}>
+                            {srv.status === 'critical' ? 'CRÍTICO' : srv.status === 'optimal' ? 'ÓPTIMO' : srv.status === 'warning' ? 'ALERTA' : 'STANDBY'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-[10px] font-mono bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
+                          <div>
+                            <div className="text-slate-500 text-[9px]">Temp CPU:</div>
+                            <div className={`text-xs font-bold flex items-center space-x-1 ${srv.temp > thermalThreshold
+                              ? 'text-rose-400 font-extrabold'
+                              : srv.temp > 38
+                                ? 'text-amber-400'
+                                : 'text-cyan-300'
+                              }`}>
+                              <Thermometer className="w-3 h-3" />
+                              <span>{srv.temp.toFixed(1)}°C</span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-slate-500 text-[9px]">Carga TDP:</div>
+                            <div className={`text-xs font-bold flex items-center space-x-1 ${srv.load > 70 ? 'text-rose-400' : srv.load > 30 ? 'text-amber-300' : 'text-emerald-400'
+                              }`}>
+                              <Cpu className="w-3 h-3" />
+                              <span>{srv.load}%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-slate-800">
+                          <div
+                            className={`h-full transition-all duration-500 ${srv.temp > thermalThreshold
+                              ? 'bg-rose-500 shadow-[0_0_8px_#f43f5e]'
+                              : srv.temp > 38
+                                ? 'bg-amber-400'
+                                : 'bg-cyan-400'
+                              }`}
+                            style={{ width: `${Math.min(100, (srv.temp / 65) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Leyenda */}
+              <div className="absolute bottom-3 left-6 right-6 z-10 flex items-center justify-between text-[11px] text-slate-400 font-mono pointer-events-none">
+                <div className="flex items-center space-x-4 bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-800">
+                  <span className="flex items-center space-x-1.5">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                    <span>Ingress User Traffic</span>
+                  </span>
+                  <span className="flex items-center space-x-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span>Dry Mesh Routing</span>
+                  </span>
+                  <span className="flex items-center space-x-1.5">
+                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                    <span>Thermal Bottleneck</span>
+                  </span>
+                </div>
+                <div className="bg-slate-900/90 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-800">
+                  Umbral Límite: <span className="text-rose-400 font-bold">{thermalThreshold}°C</span>
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN DERECHA (30%): Panel de Control */}
+            <div className="w-[30%] h-full bg-slate-900/95 border-l border-slate-800 flex flex-col overflow-hidden">
+
+              {/* Tab Selector */}
+              <div className="h-12 border-b border-slate-800 flex items-stretch shrink-0 bg-slate-950">
+                <button
+                  onClick={() => setActiveTab('config')}
+                  className={`flex-1 flex items-center justify-center space-x-2 text-xs font-semibold transition-all ${activeTab === 'config'
+                    ? 'text-cyan-400 border-b-2 border-cyan-400 bg-slate-900/90 shadow-inner'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'
+                    }`}
+                >
+                  <Sliders className="w-4 h-4" />
+                  <span>Configuración Operativa</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('control')}
+                  className={`flex-1 flex items-center justify-center space-x-2 text-xs font-semibold transition-all relative ${activeTab === 'control'
+                    ? 'text-cyan-400 border-b-2 border-cyan-400 bg-slate-900/90 shadow-inner'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'
+                    }`}
+                >
+                  <Gauge className="w-4 h-4" />
+                  <span>Control, Torre & KPIs</span>
+                  {isOverheated && !isSmartBalancing && (
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping absolute top-2 right-4"></span>
+                  )}
+                </button>
+              </div>
+
+              {/* Contenido de Tabs */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+
+                {/* TAB 1 */}
+                {activeTab === 'config' && (
+                  <div className="space-y-6">
+                    <div className="border-b border-slate-800 pb-3">
+                      <h2 className="text-sm font-bold text-slate-100 flex items-center space-x-2">
+                        <Sliders className="w-4 h-4 text-cyan-400" />
+                        <span>Parámetros de Infraestructura</span>
+                      </h2>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Ajuste la cantidad dinámica de nodos, el umbral de evaporación hídrica y la demanda de usuarios.
+                      </p>
+                    </div>
+
+                    {/* Slider Servidores */}
+                    <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-200 flex items-center space-x-2">
+                          <Server className="w-4 h-4 text-cyan-400" />
+                          <span>Servidores Activos en Clúster</span>
+                        </label>
+                        <span className="px-2.5 py-0.5 rounded-lg bg-cyan-950 border border-cyan-700 text-cyan-300 font-mono font-bold text-xs">
+                          {serverCount} Servidores
+                        </span>
+                      </div>
+
+                      <input
+                        type="range"
+                        min="3"
+                        max="8"
+                        step="1"
+                        value={serverCount}
+                        onChange={(e) => {
+                          const count = Number(e.target.value);
+                          setServerCount(count);
+                          addLog(`Topología redimensionada a ${count} servidores en el canvas.`, 'info');
+                        }}
+                        className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                      />
+
+                      <div className="flex justify-between items-center pt-1">
+                        {[3, 4, 5, 6, 7, 8].map((num) => (
+                          <button
+                            key={num}
+                            onClick={() => {
+                              setServerCount(num);
+                              addLog(`Topología redimensionada a ${num} servidores.`, 'info');
+                            }}
+                            className={`text-[10px] font-mono w-7 h-6 rounded flex items-center justify-center transition ${serverCount === num
+                              ? 'bg-cyan-500 text-slate-950 font-bold shadow-[0_0_8px_rgba(6,182,212,0.5)]'
+                              : 'bg-slate-800/80 text-slate-400 hover:bg-slate-700'
+                              }`}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        Al modificar este valor, el canvas del 70% actualiza en tiempo real su topología y las conexiones en malla.
+                      </p>
+                    </div>
+
+                    {/* Slider Umbral Térmico */}
+                    <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-200 flex items-center space-x-2">
+                          <Thermometer className="w-4 h-4 text-rose-400" />
+                          <span>Umbral Térmico Crítico</span>
+                        </label>
+                        <span className="px-2.5 py-0.5 rounded-lg bg-rose-950 border border-rose-700 text-rose-300 font-mono font-bold text-xs">
+                          {thermalThreshold} °C
+                        </span>
+                      </div>
+
+                      <input
+                        type="range"
+                        min="35"
+                        max="55"
+                        step="1"
+                        value={thermalThreshold}
+                        onChange={(e) => setThermalThreshold(Number(e.target.value))}
+                        className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                      />
+
+                      <div className="flex justify-between text-[10px] font-mono text-slate-500">
+                        <span>35°C (Estricto)</span>
+                        <span className="text-rose-400 font-bold">{thermalThreshold}°C</span>
+                        <span>55°C (Tolerante)</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        Define la temperatura límite admisible antes de que el Servidor Principal active de emergencia las torres evaporativas de agua dulce.
+                      </p>
+                    </div>
+
+                    {/* Slider Usuarios */}
+                    <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-200 flex items-center space-x-2">
+                          <Users className="w-4 h-4 text-indigo-400" />
+                          <span>Carga de Usuarios Concurrente</span>
+                        </label>
+                        <span className="px-2.5 py-0.5 rounded-lg bg-indigo-950 border border-indigo-700 text-indigo-300 font-mono font-bold text-xs">
+                          {activeUsers.toLocaleString()} req/s
+                        </span>
+                      </div>
+
+                      <input
+                        type="range"
+                        min="1000"
+                        max="100000"
+                        step="1000"
+                        value={activeUsers}
+                        onChange={(e) => setActiveUsers(Number(e.target.value))}
+                        className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                      />
+
+                      <div className="flex justify-between text-[10px] font-mono text-slate-500">
+                        <span>1,000 req/s</span>
+                        <span>50,000 req/s</span>
+                        <span>100,000 req/s</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        Volumen de inferencias que emite el nodo "El Mundo". Un volumen más alto acelera el calentamiento del Servidor 1.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2 */}
+                {activeTab === 'control' && (
+                  <div className="space-y-5">
+
+                    {/* Botones de Control */}
+                    <div className="space-y-2">
+                      <div className="text-[10px] uppercase font-mono text-slate-400 font-semibold">
+                        Control de Ejecución del Motor
+                      </div>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <button
+                          onClick={() => {
+                            setIsRunning(true);
+                            addLog('Simulación reanudada por el operador.', 'info');
+                          }}
+                          className={`flex items-center justify-center space-x-2 py-3 px-4 rounded-xl font-bold text-xs transition shadow-lg ${isRunning
+                            ? 'bg-emerald-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.35)] ring-2 ring-emerald-400'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                            }`}
+                        >
+                          <Play className="w-4 h-4 fill-current" />
+                          <span>▶ INICIAR SIMULACIÓN</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setIsRunning(false);
+                            addLog('Simulación detenida / pausada.', 'warning');
+                          }}
+                          className={`flex items-center justify-center space-x-2 py-3 px-4 rounded-xl font-bold text-xs transition ${!isRunning
+                            ? 'bg-rose-600 text-white shadow-[0_0_20px_rgba(244,63,94,0.35)] ring-2 ring-rose-400'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                            }`}
+                        >
+                          <Square className="w-4 h-4 fill-current" />
+                          <span>⏹ DETENER</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Switch Smart Load Balancing */}
+                    <div className={`rounded-2xl p-4 border transition-all duration-300 shadow-xl ${isSmartBalancing
+                      ? 'bg-gradient-to-br from-emerald-950/60 to-slate-900 border-emerald-500/70 shadow-[0_0_25px_rgba(16,185,129,0.2)]'
+                      : 'bg-gradient-to-br from-slate-900 to-slate-950 border-slate-800'
+                      }`}>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                            Estrategia Central
+                          </div>
+                          <div className="text-sm font-bold text-slate-100 flex items-center space-x-1.5 mt-0.5">
+                            <Zap className={`w-4 h-4 ${isSmartBalancing ? 'text-emerald-400' : 'text-slate-400'}`} />
+                            <span>Smart Load Balancing</span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={handleToggleBalancing}
+                          className={`w-14 h-8 rounded-full p-1 transition-colors duration-300 flex items-center cursor-pointer ${isSmartBalancing ? 'bg-emerald-500 shadow-[0_0_12px_#10b981]' : 'bg-slate-800'
+                            }`}
+                        >
+                          <div
+                            className={`w-6 h-6 rounded-full bg-white shadow-md transform transition-transform duration-300 flex items-center justify-center text-[10px] font-bold ${isSmartBalancing ? 'translate-x-6 text-emerald-700' : 'translate-x-0 text-slate-600'
+                              }`}
+                          >
+                            {isSmartBalancing ? 'ON' : 'OFF'}
+                          </div>
+                        </button>
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-slate-800/80 text-[11px] leading-relaxed">
+                        {isSmartBalancing ? (
+                          <div className="text-emerald-300 flex items-start space-x-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                            <span>
+                              <strong>Modo Seco Activo:</strong> Flujo distribuido uniformemente entre los {serverCount} racks. Delegación de cómputo en marcha.
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="text-slate-400 flex items-start space-x-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                            <span>
+                              <strong>Balanceo Inactivo:</strong> El Servidor 1 asume el 90% del tráfico global, conduciendo al sobrecalentamiento crítico.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* KPIs */}
+                    <div className="space-y-2">
+                      <div className="text-[10px] uppercase font-mono text-slate-400 font-semibold flex items-center justify-between">
+                        <span>Métricas y KPIs del Sistema</span>
+                        <span className="text-cyan-400 text-[9px]">Telemetría en Vivo</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2.5">
+                        {/* KPI 1 */}
+                        <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${avgTemp > thermalThreshold
+                              ? 'bg-rose-950 border border-rose-800 text-rose-400'
+                              : 'bg-cyan-950 border border-cyan-800 text-cyan-400'
+                              }`}>
+                              <Thermometer className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-slate-400 font-mono">Temperatura Promedio</div>
+                              <div className={`text-base font-mono font-bold ${avgTemp > thermalThreshold ? 'text-rose-400' : 'text-slate-100'
+                                }`}>
+                                {avgTemp.toFixed(1)} °C
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right text-[10px] font-mono text-slate-500">
+                            <div>Umbral: {thermalThreshold}°C</div>
+                            <div className={mainServerTemp > thermalThreshold ? 'text-rose-400' : 'text-emerald-400'}>
+                              Srv1: {mainServerTemp.toFixed(1)}°C
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* KPI 2 */}
+                        <div className={`border rounded-xl p-3 flex items-center justify-between transition-colors ${currentWaterLossRate > 0
+                          ? 'bg-rose-950/30 border-rose-500/60 shadow-[0_0_15px_rgba(244,63,94,0.15)]'
+                          : 'bg-slate-950/80 border-slate-800'
+                          }`}>
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${currentWaterLossRate > 0
+                              ? 'bg-rose-950 border border-rose-700 text-rose-400'
+                              : 'bg-slate-800 border border-slate-700 text-slate-500'
+                              }`}>
+                              <Droplets className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-slate-400 font-mono">Agua Evaporada (Tasa / Total)</div>
+                              <div className={`text-base font-mono font-bold ${currentWaterLossRate > 0 ? 'text-rose-400 animate-pulse' : 'text-slate-300'
+                                }`}>
+                                {currentWaterLossRate.toLocaleString()} <span className="text-xs font-normal">L/h</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right text-[10px] font-mono">
+                            <div className="text-slate-500">Pérdida acumulada:</div>
+                            <div className="text-rose-300 font-bold">{waterLossTotal.toLocaleString()} L</div>
+                          </div>
+                        </div>
+
+                        {/* KPI 3 */}
+                        <div className={`border rounded-xl p-3 flex items-center justify-between transition-colors ${isSmartBalancing
+                          ? 'bg-emerald-950/30 border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                          : 'bg-slate-950/80 border-slate-800'
+                          }`}>
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isSmartBalancing
+                              ? 'bg-emerald-950 border border-emerald-700 text-emerald-400'
+                              : 'bg-slate-800 border border-slate-700 text-slate-500'
+                              }`}>
+                              <ShieldCheck className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-slate-400 font-mono">Agua Ahorrada (Modo Seco)</div>
+                              <div className="text-base font-mono font-bold text-emerald-400">
+                                {waterSavedTotal.toLocaleString()} <span className="text-xs font-normal">L/día</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right text-[10px] font-mono text-slate-500">
+                            <div>Equivalente:</div>
+                            <div className="text-emerald-300 font-bold">~{Math.round(waterSavedTotal / 250)} personas/día</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Widget Torre de Enfriamiento (Clickable -> Modal) */}
+                    <div
+                      onClick={() => setIsCoolingModalOpen(true)}
+                      className={`border rounded-2xl p-4 relative overflow-hidden transition-all duration-300 cursor-pointer hover:ring-2 hover:ring-blue-500 group ${isCoolingTowerActive
+                        ? 'bg-gradient-to-b from-rose-950/60 to-slate-950 border-rose-500 shadow-[0_0_30px_rgba(244,63,94,0.35)]'
+                        : isSmartBalancing
+                          ? 'bg-gradient-to-b from-emerald-950/40 to-slate-950 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.15)]'
+                          : 'bg-slate-950/90 border-slate-800 hover:border-slate-700'
+                        }`}
+                      title="Haz clic para inspeccionar el esquema físico y el ciclo termodinámico del agua"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isCoolingTowerActive
+                            ? 'bg-rose-950 border border-rose-700 text-rose-400'
+                            : isSmartBalancing
+                              ? 'bg-emerald-950 border border-emerald-700 text-emerald-400'
+                              : 'bg-slate-800 text-slate-400'
+                            }`}>
+                            <Wind className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+                              <span>Torre de Enfriamiento Hídrico</span>
+                              <span className="text-[9px] text-blue-400 font-mono opacity-80 group-hover:opacity-100 transition">↗</span>
+                            </div>
+                            <div className="text-[9px] font-mono text-slate-400">Subestación de Enfriamiento #01</div>
+                          </div>
+                        </div>
+
+                        <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-mono font-bold uppercase ${isCoolingTowerActive
+                          ? 'bg-rose-950 text-rose-300 border border-rose-500 animate-pulse'
+                          : isSmartBalancing
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-600'
+                            : 'bg-slate-800 text-slate-400'
+                          }`}>
+                          {isCoolingTowerActive ? 'EVAPORACIÓN ACTIVA' : isSmartBalancing ? 'CIRCUITO CERRADO' : 'STANDBY'}
+                        </span>
+                      </div>
+
+                      <div className="relative h-24 bg-slate-950/80 rounded-xl border border-slate-800/80 flex items-center justify-center overflow-hidden">
+                        {isCoolingTowerActive && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                              <motion.div
+                                key={`steam-${i}`}
+                                className="absolute rounded-full bg-rose-400/40 blur-sm"
+                                style={{
+                                  width: 14 + i * 4,
+                                  height: 14 + i * 4,
+                                  left: `${28 + i * 9}%`,
+                                  bottom: '30%'
+                                }}
+                                animate={{
+                                  y: [-5, -45 - i * 6],
+                                  x: [0, i % 2 === 0 ? 8 : -8],
+                                  opacity: [0, 0.75, 0],
+                                  scale: [0.6, 1.6]
+                                }}
+                                transition={{
+                                  duration: 1.8 + i * 0.25,
+                                  repeat: Infinity,
+                                  delay: i * 0.2,
+                                  ease: 'easeOut'
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="z-10 flex flex-col items-center space-y-1">
+                          {isCoolingTowerActive ? (
+                            <>
+                              <div className="flex items-center space-x-1.5 text-rose-400 font-bold text-xs animate-pulse">
+                                <Flame className="w-4 h-4" />
+                                <span>Vaporización Hídrica en Curso</span>
+                              </div>
+                              <div className="text-[10px] font-mono text-rose-300">
+                                +{currentWaterLossRate} L/h evaporándose al aire libre
+                              </div>
+                            </>
+                          ) : isSmartBalancing ? (
+                            <>
+                              <div className="flex items-center space-x-1.5 text-emerald-400 font-bold text-xs">
+                                <ShieldCheck className="w-4 h-4" />
+                                <span>Modo Seco Sostenible // Cero Vapor</span>
+                              </div>
+                              <div className="text-[10px] font-mono text-emerald-300/80">
+                                Enfriamiento por convección natural (0 L/h)
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-slate-500 text-xs font-mono">
+                              Temperatura en rango seguro pre-umbral
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                        {isCoolingTowerActive
+                          ? '⚠️ La temperatura excedió el umbral crítico. Las aspersoras consumen agua potable para salvar el clúster.'
+                          : isSmartBalancing
+                            ? '✅ Con el balanceo activo, el calor se disipa sin pérdida de agua dulce mediante circuito cerrado.'
+                            : 'Modo pasivo. Si el Servidor 1 sobrepasa el umbral, comenzará la pérdida de agua.'}
+                      </p>
+
+                      <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono">
+                        <span className="text-slate-500">Inspección de tuberías</span>
+                        <span className="text-blue-400 font-semibold group-hover:text-blue-300 flex items-center space-x-1">
+                          <span>Ver Ciclo Físico</span>
+                          <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Log */}
+                    <div className="border border-slate-800 bg-slate-950/80 rounded-xl p-3 space-y-2">
+                      <div className="text-[10px] uppercase font-mono text-slate-400 font-semibold flex items-center justify-between">
+                        <span>Log de Auditoría Térmica</span>
+                        <span className="text-[9px] text-cyan-400">Stream en Vivo</span>
+                      </div>
+                      <div className="h-28 overflow-y-auto space-y-1.5 font-mono text-[10px] pr-1">
+                        {logs.map((log) => (
+                          <div key={log.id} className="flex items-start space-x-2 leading-tight">
+                            <span className="text-slate-600 shrink-0">[{log.time}]</span>
+                            <span className={
+                              log.type === 'alert' ? 'text-rose-400 font-bold' :
+                                log.type === 'warning' ? 'text-amber-400' :
+                                  log.type === 'success' ? 'text-emerald-400' :
+                                    'text-slate-300'
+                            }>
+                              {log.text}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+
+              </div>
+            </div>
+
+          </div>
+
+          {/* ==================================================================== */}
+          {/* 3. MODAL DEL CICLO FÍSICO DE ENFRIAMIENTO (TERMODINÁMICA E HÍDRICA)  */}
+          {/* ==================================================================== */}
+          <AnimatePresence>
+            {isCoolingModalOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-6"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setIsCoolingModalOpen(false);
+                }}
+              >
+                <motion.div
+                  initial={{ scale: 0.94, opacity: 0, y: 15 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.94, opacity: 0, y: 15 }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                  className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-3/4 max-w-4xl max-h-[92vh] flex flex-col overflow-hidden text-slate-100"
+                >
+                  {/* Cabecera del Modal */}
+                  <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/80">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isCoolingTowerActive
+                        ? 'bg-rose-950 border border-rose-700 text-rose-400'
+                        : isSmartBalancing
+                          ? 'bg-emerald-950 border border-emerald-700 text-emerald-400'
+                          : 'bg-cyan-950 border border-cyan-700 text-cyan-400'
+                        }`}>
+                        <Factory className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                          <span>Esquema Físico: Sistema de Enfriamiento y Evaporación</span>
+                          <span className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full ${isCoolingTowerActive
+                            ? 'bg-rose-950 text-rose-300 border border-rose-600 animate-pulse'
+                            : isSmartBalancing
+                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-600'
+                              : 'bg-slate-800 text-slate-400'
+                            }`}>
+                            {isCoolingTowerActive ? 'EVAPORACIÓN ACTIVA' : isSmartBalancing ? 'CIRCUITO CERRADO' : 'NOMINAL'}
+                          </span>
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          Diagrama de flujo termodinámico y ciclo de reutilización del agua en el Data Center
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setIsCoolingModalOpen(false)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                      title="Cerrar modal"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Contenido del Diagrama */}
+                  <div className="p-6 overflow-y-auto space-y-6">
+
+                    {/* Banner Explicativo de Estado */}
+                    <div className={`p-3.5 rounded-xl border flex items-start space-x-3 ${isCoolingTowerActive
+                      ? 'bg-rose-950/40 border-rose-700/60 text-rose-200'
+                      : isSmartBalancing
+                        ? 'bg-emerald-950/40 border-emerald-700/60 text-emerald-200'
+                        : 'bg-slate-950 border-slate-800 text-slate-300'
+                      }`}>
+                      <Info className="w-5 h-5 shrink-0 mt-0.5" />
+                      <div className="text-xs leading-relaxed">
+                        {isCoolingTowerActive ? (
+                          <>
+                            <strong>Pérdida Hídrica por Sobrecalentamiento:</strong> El Servidor Principal opera a {mainServerTemp.toFixed(1)}°C superando el umbral de {thermalThreshold}°C. Las torres evaporativas liberan vapor caliente a la atmósfera ({currentWaterLossRate} L/h) para evitar la degradación de los chips.
+                          </>
+                        ) : isSmartBalancing ? (
+                          <>
+                            <strong>Modo Seco / Circuito Cerrado Activo:</strong> La distribución homogénea de cómputo estabiliza la temperatura a {mainServerTemp.toFixed(1)}°C. Las torres de evaporación se detienen y el 100% del caudal de agua recircula sin pérdida.
+                          </>
+                        ) : (
+                          <>
+                            <strong>Operación en Rango Nominal:</strong> Monitoreo de temperatura pre-umbral ({mainServerTemp.toFixed(1)}°C). Si se satura el servidor primario, se activará la evaporación hídrica.
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* DIAGRAMA HORIZONTAL (FLEXBOX DE 3 BLOQUES) */}
+                    <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-6 relative">
+
+                      <div className="flex flex-col lg:flex-row items-center justify-between gap-4 relative">
+
+                        {/* BLOQUE 1: RACKS DE SERVIDORES (IZQUIERDA) */}
+                        <div className="w-full lg:w-60 bg-slate-900 border border-slate-700/80 rounded-xl p-4 shadow-xl flex flex-col items-center text-center relative z-10">
+                          <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-cyan-400 mb-3 shadow-inner">
+                            <Server className="w-7 h-7" />
+                          </div>
+                          <div className="text-xs font-bold text-slate-100 uppercase tracking-wider">
+                            Racks de Servidores
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono mb-2">
+                            Fuente Térmica (CPUs / GPUs)
+                          </div>
+
+                          {/* Temperatura conectada a mainServerTemp */}
+                          <div className={`px-3 py-1.5 rounded-lg border font-mono font-bold text-xs flex items-center space-x-1.5 mb-2 ${mainServerTemp > thermalThreshold
+                            ? 'bg-rose-950/80 border-rose-600 text-rose-300 animate-pulse'
+                            : 'bg-cyan-950/80 border-cyan-700 text-cyan-300'
+                            }`}>
+                            <Thermometer className="w-3.5 h-3.5" />
+                            <span>Temp: {mainServerTemp.toFixed(1)} °C</span>
+                          </div>
+
+                          <div className="text-[10px] text-slate-400">
+                            {isOverheated ? 'Calor extremo en placas frías' : 'Disipación térmica nominal'}
+                          </div>
+                        </div>
+
+                        {/* CONECTOR PRIMARIO (Servidores <-> Intercambiador) */}
+                        <div className="hidden lg:flex flex-col items-center justify-center w-16 relative">
+                          <div className="w-full h-2.5 bg-slate-800 border border-orange-500/50 rounded-full relative overflow-hidden mb-3">
+                            <motion.div
+                              className="w-3 h-full bg-orange-400 rounded-full"
+                              animate={{ x: [-8, 50] }}
+                              transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+                            />
+                          </div>
+                          <span className="text-[8px] font-mono text-slate-500 whitespace-nowrap mb-3">
+                            Loop Interno
+                          </span>
+                          <div className="w-full h-2.5 bg-slate-800 border border-cyan-500/50 rounded-full relative overflow-hidden">
+                            <motion.div
+                              className="w-3 h-full bg-cyan-400 rounded-full"
+                              animate={{ x: [50, -8] }}
+                              transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* BLOQUE 2: INTERCAMBIADOR DE CALOR (CENTRO) */}
+                        <div className="w-full lg:w-56 bg-slate-900 border border-cyan-800/60 rounded-xl p-4 shadow-xl flex flex-col items-center text-center relative z-10">
+                          <div className="w-14 h-14 rounded-2xl bg-cyan-950/70 border border-cyan-700 flex items-center justify-center text-cyan-300 mb-3 shadow-inner">
+                            <Cpu className="w-7 h-7" />
+                          </div>
+                          <div className="text-xs font-bold text-slate-100 uppercase tracking-wider">
+                            Heat Exchanger
+                          </div>
+                          <div className="text-[10px] text-cyan-400 font-mono mb-2">
+                            Intercambiador de Calor
+                          </div>
+
+                          <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5 w-full text-[10px] font-mono text-slate-400 space-y-1">
+                            <div className="flex justify-between">
+                              <span>Placas:</span>
+                              <span className="text-emerald-400">Titanio</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Transferencia:</span>
+                              <span className="text-cyan-300">96.8%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* CONEXIONES HÍDRICAS (CENTRO <-> DERECHA): TUBERÍAS ANIMADAS */}
+                        <div className="w-full lg:w-48 flex flex-col justify-center space-y-5 relative px-2 py-2">
+
+                          {/* 1. Tubería Superior (Agua Caliente hacia la Torre) */}
+                          <div className="relative">
+                            <div className="h-6 bg-rose-950/40 border border-red-500 rounded-full relative overflow-hidden flex items-center px-2 shadow-[0_0_10px_rgba(239,68,68,0.25)]">
+                              {[0, 1, 2].map((i) => (
+                                <motion.div
+                                  key={`hot-p-${i}`}
+                                  className="w-2.5 h-2.5 rounded-full bg-red-400 shadow-[0_0_8px_#ef4444] absolute"
+                                  animate={{ x: [-15, 140] }}
+                                  transition={{
+                                    duration: 1.6,
+                                    repeat: Infinity,
+                                    ease: 'linear',
+                                    delay: i * 0.52
+                                  }}
+                                />
+                              ))}
+                            </div>
+                            <div className="flex items-center justify-between text-[9px] font-mono text-red-400 font-bold mt-1 px-1">
+                              <span>Tubería Agua Caliente</span>
+                              <ArrowRight className="w-3 h-3 text-red-400" />
+                            </div>
+                          </div>
+
+                          {/* 2. Tubería Inferior (Agua Fría/Reutilizada hacia el Intercambiador) */}
+                          <div className="relative">
+                            <div className="h-6 bg-blue-950/40 border border-blue-500 rounded-full relative overflow-hidden flex items-center px-2 shadow-[0_0_10px_rgba(59,130,246,0.25)]">
+                              {[0, 1, 2].map((i) => (
+                                <motion.div
+                                  key={`cold-p-${i}`}
+                                  className="w-2.5 h-2.5 rounded-full bg-blue-400 shadow-[0_0_8px_#3b82f6] absolute"
+                                  animate={{ x: [140, -15] }}
+                                  transition={{
+                                    duration: 1.8,
+                                    repeat: Infinity,
+                                    ease: 'linear',
+                                    delay: i * 0.58
+                                  }}
+                                />
+                              ))}
+                            </div>
+
+                            {/* BADGE DINÁMICO DE AGUA REUTILIZADA (CRUCIAL) */}
+                            <div className="flex items-center justify-between text-[9px] font-mono mt-1 px-1">
+                              <ArrowLeft className="w-3 h-3 text-blue-400" />
+                              <span className={`font-bold px-2 py-0.5 rounded ${isSmartBalancing
+                                ? 'text-emerald-300 bg-emerald-950 border border-emerald-600'
+                                : 'text-blue-300 bg-blue-950 border border-blue-600'
+                                }`}>
+                                {isSmartBalancing
+                                  ? '100% Recirculación (Cero Consumo de Red)'
+                                  : 'Agua Reutilizada (Aprox. 70%)'}
+                              </span>
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* BLOQUE 3: TORRE DE ENFRIAMIENTO (DERECHA) */}
+                        <div className="w-full lg:w-64 bg-slate-900 border border-slate-700/80 rounded-xl p-4 shadow-xl flex flex-col items-center text-center relative z-10">
+
+                          {/* BADGE FLOTANTE DE EVAPORACIÓN (CRUCIAL) */}
+                          <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20 whitespace-nowrap">
+                            {isCoolingTowerActive ? (
+                              <span className="text-[10px] font-mono font-bold text-rose-200 bg-rose-950 border border-rose-500 px-3 py-1 rounded-full shadow-[0_0_15px_rgba(244,63,94,0.5)] animate-pulse flex items-center space-x-1">
+                                <Flame className="w-3 h-3 text-rose-400" />
+                                <span>Pérdida por Evaporación (Aprox. 20% - 30%)</span>
+                              </span>
+                            ) : isSmartBalancing ? (
+                              <span className="text-[10px] font-mono font-bold text-emerald-200 bg-emerald-950 border border-emerald-500 px-3 py-1 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.3)] flex items-center space-x-1">
+                                <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                                <span>Dry Mode / Sistema Cerrado (0% Evaporación)</span>
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono text-slate-300 bg-slate-950 border border-slate-700 px-2.5 py-0.5 rounded-full">
+                                Torre en Espera
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Animación de Nubes de Vapor */}
+                          {isCoolingTowerActive && (
+                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-28 h-12 pointer-events-none flex justify-center">
+                              {[1, 2, 3, 4].map((i) => (
+                                <motion.div
+                                  key={`modal-steam-${i}`}
+                                  className="absolute rounded-full bg-rose-400/40 blur-sm"
+                                  style={{ width: 14 + i * 4, height: 14 + i * 4, bottom: 0 }}
+                                  animate={{
+                                    y: [0, -32 - i * 6],
+                                    x: [0, i % 2 === 0 ? 10 : -10],
+                                    opacity: [0, 0.75, 0],
+                                    scale: [0.6, 1.7]
+                                  }}
+                                  transition={{
+                                    duration: 1.7 + i * 0.25,
+                                    repeat: Infinity,
+                                    delay: i * 0.2,
+                                    ease: 'easeOut'
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          )}
+
+                          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 mt-2 shadow-inner transition-colors ${isCoolingTowerActive
+                            ? 'bg-rose-950/80 border border-rose-700 text-rose-400'
+                            : isSmartBalancing
+                              ? 'bg-emerald-950/80 border border-emerald-700 text-emerald-400'
+                              : 'bg-slate-800 border border-slate-700 text-slate-400'
+                            }`}>
+                            <Factory className="w-7 h-7" />
+                          </div>
+
+                          <div className="text-xs font-bold text-slate-100 uppercase tracking-wider">
+                            Torre de Enfriamiento
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono mb-2">
+                            Unidad de Evaporación
+                          </div>
+
+                          <div className={`px-2.5 py-1 rounded-lg border font-mono text-[10px] w-full ${isCoolingTowerActive
+                            ? 'bg-rose-950/50 border-rose-700 text-rose-300'
+                            : isSmartBalancing
+                              ? 'bg-emerald-950/50 border-emerald-700 text-emerald-300'
+                              : 'bg-slate-950 border-slate-800 text-slate-400'
+                            }`}>
+                            {isCoolingTowerActive
+                              ? `Evaporando: ${currentWaterLossRate} L/h`
+                              : isSmartBalancing
+                                ? 'Pérdida Hídrica: 0 L/h'
+                                : 'Circuito en Standby'}
+                          </div>
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    {/* MÉTRICAS COMPARATIVAS DEL BALANCE DE MATERIA HÍDRICO */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+                        <div className="text-[10px] font-mono text-slate-400 uppercase">Flujo Térmico Disipado</div>
+                        <div className="text-base font-bold text-slate-100 font-mono mt-0.5">
+                          {((activeUsers / 1000) * 1.8).toFixed(1)} <span className="text-xs font-normal text-slate-400">kW Térmicos</span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-1">Generado por núcleos GPU/CPU</div>
+                      </div>
+
+                      <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+                        <div className="text-[10px] font-mono text-slate-400 uppercase">Pérdida por Evaporación</div>
+                        <div className={`text-base font-bold font-mono mt-0.5 ${isCoolingTowerActive ? 'text-rose-400' : 'text-emerald-400'
+                          }`}>
+                          {isCoolingTowerActive ? '20% - 30%' : '0% (Cero Pérdida)'}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-1">
+                          {isCoolingTowerActive ? 'Vapor liberado a la atmósfera' : 'Sin aspersión evaporativa'}
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+                        <div className="text-[10px] font-mono text-slate-400 uppercase">Tasa de Recirculación</div>
+                        <div className="text-base font-bold text-blue-400 font-mono mt-0.5">
+                          {isSmartBalancing ? '100% de Masa' : 'Aprox. 70%'}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-1">
+                          {isSmartBalancing ? 'Circuito cerrado sin reposición' : 'Retorno de agua no evaporada'}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Pie del Modal */}
+                  <div className="px-6 py-3 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between">
+                    <div className="text-[11px] font-mono text-slate-400 flex items-center space-x-2">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                      <span>AQUANET AI // Simulación Termodinámica en Tiempo Real</span>
+                    </div>
+                    <button
+                      onClick={() => setIsCoolingModalOpen(false)}
+                      className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
+                    >
+                      Entendido / Cerrar
+                    </button>
+                  </div>
+
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+
+</html>
